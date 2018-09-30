@@ -5,21 +5,24 @@ import math
 import time
 import random
 import re
+import ssl
+
+import asyncpg
+from aiohttp import web
 
 from aiogram import Bot, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import Dispatcher, CancelHandler, ctx
 from aiogram.dispatcher.middlewares import BaseMiddleware
-from aiogram.utils.executor import start_polling
+from aiogram.dispatcher.webhook import get_new_configured_app
 from aiogram.utils import context
 from aiogram.utils.exceptions import Throttled, MessageTextIsEmpty, BadRequest, MessageCantBeDeleted
 from aiogram.utils.markdown import italic
 from aiogram.types import ParseMode, InlineKeyboardMarkup, InlineKeyboardButton, ContentType
-import asyncpg
 
 from bot import calculate_time, rate_limit
 from bot.call_later import call_later
-from bot.config import TOKEN, DB, MY_ID, MY_CHANNEL, BOT_ID
+from bot.config import *
 from bot.db import create_conn, gen_prepared_query
 from bot.text_messages import text_messages, random_mess
 
@@ -29,6 +32,8 @@ logging.basicConfig(level=logging.INFO)
 admins = 'creator', 'administrator'
 
 loop = asyncio.get_event_loop()
+loop.set_task_factory(context.task_factory)
+
 storage = MemoryStorage()
 bot = Bot(token=TOKEN, loop=loop, parse_mode=ParseMode.MARKDOWN)
 
@@ -36,6 +41,8 @@ dp = Dispatcher(bot, storage=storage)
 
 conn = loop.run_until_complete(create_conn(**DB))  # Подключаемся к БД
 prepared_query = loop.run_until_complete(gen_prepared_query(conn))  # Получаем подготовленые выражения
+
+WEBHOOK_URL = f"https://{WEBHOOK_HOST}:{WEBHOOK_PORT}{WEBHOOK_URL_PATH}"
 
 
 def set_privileges(privilege):
@@ -715,18 +722,37 @@ async def command_filter(message: types.Message):
     """
     await bot.delete_message(message.chat.id, message.message_id)
 
+async def on_startup(app):
+    webhook = await bot.get_webhook_info()
 
-async def shutdown(dispatcher: Dispatcher):
+    if webhook.url != WEBHOOK_URL:
+        if not webhook.url:
+            await bot.delete_webhook()
+
+        await bot.set_webhook(WEBHOOK_URL, certificate=open(WEBHOOK_SSL_CERT, 'rb'))
+
+
+async def on_shutdown(app):
     """
     Выполняется при выключении бота.
     """
+    await bot.delete_webhook()
     await conn.close()
-    await dispatcher.storage.close()
-    await dispatcher.storage.wait_closed()
+    await dp.storage.close()
+    await dp.storage.wait_closed()
 
 
 if __name__ == '__main__':
     dp.middleware.setup(AntiFlood())
     dp.middleware.setup(CallbackAntiFlood())
     dp.middleware.setup(WordsFilter())
-    start_polling(dp, loop=loop, on_shutdown=shutdown, skip_updates=True)
+
+    app = get_new_configured_app(dispatcher=dp, path=WEBHOOK_URL_PATH)
+
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+
+    context_ssl = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+    context_ssl.load_cert_chain(WEBHOOK_SSL_CERT, WEBHOOK_SSL_PRIV)
+
+    web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT, ssl_context=context_ssl)
