@@ -438,10 +438,10 @@ async def acquit(message: types.Message):
     """
     Снять все предупреждения с пользователю.
     """
-    if message.reply_to_message.from_user.id == BOT_ID:
-        await bot.send_message(message.chat.id, random.choice(random_mess))
-        return
     try:
+        if message.reply_to_message.from_user.id == BOT_ID:
+            await bot.send_message(message.chat.id, random.choice(random_mess))
+            return
         name = message.reply_to_message.from_user.full_name
         user_id = message.reply_to_message.from_user.id
         await bot.send_message(message.chat.id, f'[{name}](tg://user?id={user_id}) больше не имеет предупреждений.')
