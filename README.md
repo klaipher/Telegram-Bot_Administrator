@@ -1,9 +1,9 @@
 # Telegram-Bot_Administrator
-Бот для администрирования суперчатов
-Поддерживает Python 3.6+
+Superadmin Chat Bot 
+Supports Python 3.6+
 
 # Установка
-Создаем виртуальное окружение с Python 3 и ставим зависимости
+We create a virtual environment with Python 3 and installing dependencies
 ```
 virtualenv venv
 source venv/bin/activate
@@ -11,10 +11,10 @@ pip install -r requirements.txt
 ```
 
 # Конфигурация
-1. Вам нужно поговорить с BotFather, как описано [здесь](https://core.telegram.org/bots#botfather) и получите API токен.
-Также вам нужно отключить конфиденциальность, отправив BotFather команду `/setprivacy`
-2. Редактируем файл bot/config.py. И выставляем свою конфигурацию.
-3. Для создание таблицы в БД отредактируйте строку в main.py:
+1. You need to talk to BotFather as described [here](https://core.telegram.org/bots#botfather) and get an API token.
+Also you need to disable privacy by sending BotFather command `/setprivacy`
+2. Edit the bot/config.py file. And we setup your configuration.
+3. To create a table in the database, edit the line in main.py:
 ```
 conn = loop.run_until_complete(create_conn(**DB, create_table=True))
 ```
